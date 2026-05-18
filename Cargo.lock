@@ -12,3 +12,4 @@ dependencies = [
 [[package]]
 name = "samp-sdk"
 version = "0.1.0"
+source = "git+ssh://git@github.com/uphokaew/samp-plugin-rs.git?branch=main#6744bcf9ef475954b4cc1e918a7b398c93850734"
