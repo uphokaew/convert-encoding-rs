@@ -1,228 +1,185 @@
 #include <open.mp>
 #include <ConvertEncoding>
 
+#define COLOR_WHITE     0xFFFFFFFF
+#define COLOR_RED       0xFF0000FF
+#define COLOR_GREEN     0x00FF00FF
+#define COLOR_YELLOW    0xFFFF00FF
+#define COLOR_CYAN      0x00FFFFFF
+#define COLOR_ORANGE    0xFF8800FF
+
+// =========================================================
+//  Helper: แปลง UTF-8 → TIS-620 แล้วส่ง SendClientMessage
+//  ใช้แทน SendClientMessage ปกติเมื่อเขียนไทยใน source
+// =========================================================
+stock SendThaiMessage(playerid, color, const utf8_msg[]) {
+    new tis[256];
+    ConvertEncoding(utf8_msg, UTF8, TIS620, tis);
+    SendClientMessage(playerid, color, tis);
+}
+
 main() {
-    print("=================================");
-    print("  ConvertEncoding v2.1.0 (Rust)");
-    print("  Comprehensive Test Suite");
-    print("=================================");
+    print("===========================================");
+    print("  ConvertEncoding v2.1.0 (Rust) Live Test");
+    print("  UTF-8 → TIS-620 for SA-MP display");
+    print("===========================================");
 }
 
 public OnGameModeInit() {
-    new passed = 0;
-    new failed = 0;
+    SetGameModeText("ConvertEncoding Test");
+    AddPlayerClass(0, 1958.3783, 1343.1572, 15.3746, 269.1425, WEAPON_FIST, 0, WEAPON_FIST, 0, WEAPON_FIST, 0);
+    return 1;
+}
 
-    printf("[Test] Starting ConvertEncoding test suite...");
-    printf("");
+public OnPlayerConnect(playerid) {
+    SendClientMessage(playerid, COLOR_YELLOW, "===========================================");
+    SendThaiMessage(playerid, COLOR_YELLOW, "  ConvertEncoding ทดสอบในเกมจริง");
+    SendClientMessage(playerid, COLOR_YELLOW, "===========================================");
+    SendClientMessage(playerid, COLOR_WHITE, "/test  - Run all tests");
+    SendClientMessage(playerid, COLOR_WHITE, "/msg   - Thai messages");
+    SendClientMessage(playerid, COLOR_WHITE, "/color - Inline color + Thai");
+    SendClientMessage(playerid, COLOR_WHITE, "/info  - Player info in Thai");
+    return 1;
+}
 
-    // =========================================================
-    // Test 1: TIS-620 → UTF-8 (Thai greeting)
-    // =========================================================
-    {
-        new tis[7];
-        tis[0] = 0xCA; // ส
-        tis[1] = 0xC7; // ว
-        tis[2] = 0xD1; // ั
-        tis[3] = 0xCA; // ส
-        tis[4] = 0xB4; // ด
-        tis[5] = 0xD5; // ี
-        tis[6] = 0;
+public OnPlayerSpawn(playerid) {
+    SendThaiMessage(playerid, COLOR_GREEN, "คุณเกิดแล้ว พิมพ์ /test เพื่อทดสอบ");
+    return 1;
+}
 
-        new utf8[256];
-        new result = ConvertEncoding(tis, TIS620, UTF8, utf8);
-        if (result == 1) {
-            printf("[PASS] Test 1: TIS-620 -> UTF-8 Thai greeting: '%s'", utf8);
-            passed++;
-        } else {
-            printf("[FAIL] Test 1: TIS-620 -> UTF-8 returned %d", result);
-            failed++;
-        }
+public OnPlayerCommandText(playerid, cmdtext[]) {
+    if (!strcmp(cmdtext, "/test", true)) {
+        TestMessages(playerid);
+        TestColors(playerid);
+        TestPlayerInfo(playerid);
+        return 1;
     }
-
-    // =========================================================
-    // Test 2: UTF-8 → TIS-620 (roundtrip)
-    // =========================================================
-    {
-        new tis[7];
-        tis[0] = 0xCA; tis[1] = 0xC7; tis[2] = 0xD1;
-        tis[3] = 0xCA; tis[4] = 0xB4; tis[5] = 0xD5; tis[6] = 0;
-
-        new utf8[256], back[256];
-        ConvertEncoding(tis, TIS620, UTF8, utf8);
-        new result = ConvertEncoding(utf8, UTF8, TIS620, back);
-
-        // Verify roundtrip: back should equal original tis
-        new match = 1;
-        for (new i = 0; i < 6; i++) {
-            if (back[i] != tis[i]) { match = 0; break; }
-        }
-        if (result == 1 && match) {
-            printf("[PASS] Test 2: UTF-8 -> TIS-620 roundtrip");
-            passed++;
-        } else {
-            printf("[FAIL] Test 2: Roundtrip failed (result=%d, match=%d)", result, match);
-            failed++;
-        }
+    if (!strcmp(cmdtext, "/msg", true)) {
+        TestMessages(playerid);
+        return 1;
     }
-
-    // =========================================================
-    // Test 3: ASCII passthrough (no conversion needed)
-    // =========================================================
-    {
-        new ascii[] = "Hello World 123!@#";
-        new out[256];
-        new result = ConvertEncoding(ascii, TIS620, UTF8, out);
-        if (result == 1 && !strcmp(out, ascii)) {
-            printf("[PASS] Test 3: ASCII passthrough: '%s'", out);
-            passed++;
-        } else {
-            printf("[FAIL] Test 3: ASCII passthrough (result=%d, out='%s')", result, out);
-            failed++;
-        }
+    if (!strcmp(cmdtext, "/color", true)) {
+        TestColors(playerid);
+        return 1;
     }
-
-    // =========================================================
-    // Test 4: Inline SA-MP color codes preserved
-    // {FF0000} = red, {00FF00} = green
-    // =========================================================
-    {
-        new colored[] = "{FF0000}Hello{00FF00}World";
-        new out[256];
-        new result = ConvertEncoding(colored, TIS620, UTF8, out);
-        if (result == 1 && !strcmp(out, colored)) {
-            printf("[PASS] Test 4: Inline color codes preserved: '%s'", out);
-            passed++;
-        } else {
-            printf("[FAIL] Test 4: Color codes (result=%d, out='%s')", result, out);
-            failed++;
-        }
+    if (!strcmp(cmdtext, "/info", true)) {
+        TestPlayerInfo(playerid);
+        return 1;
     }
+    return 0;
+}
 
-    // =========================================================
-    // Test 5: Mixed Thai TIS-620 + inline color codes
-    // =========================================================
-    {
-        new mixed[32];
-        // {FF0000} + Thai "กข" (0xA1, 0xA2)
-        mixed[0] = '{'; mixed[1] = 'F'; mixed[2] = 'F';
-        mixed[3] = '0'; mixed[4] = '0'; mixed[5] = '0';
-        mixed[6] = '0'; mixed[7] = '}';
-        mixed[8] = 0xA1; // ก
-        mixed[9] = 0xA2; // ข
-        mixed[10] = 0;
+// =========================================================
+//  /msg — ข้อความภาษาไทยแบบต่าง ๆ
+// =========================================================
+forward TestMessages(playerid);
+public TestMessages(playerid) {
+    SendClientMessage(playerid, COLOR_CYAN, "--- Thai Messages (UTF-8 source -> TIS-620) ---");
 
-        new out[256];
-        new result = ConvertEncoding(mixed, TIS620, UTF8, out);
-        if (result == 1) {
-            printf("[PASS] Test 5: Color + Thai TIS-620: '%s'", out);
-            passed++;
-        } else {
-            printf("[FAIL] Test 5: Color + Thai (result=%d)", result);
-            failed++;
-        }
-    }
+    // ข้อความทั่วไป
+    SendThaiMessage(playerid, COLOR_WHITE, "สวัสดีครับ ยินดีต้อนรับเข้าสู่เซิร์ฟเวอร์");
+    SendThaiMessage(playerid, COLOR_WHITE, "ระบบพร้อมใช้งานแล้ว");
 
-    // =========================================================
-    // Test 6: Empty string
-    // =========================================================
-    {
-        new empty[] = "";
-        new out[256];
-        out[0] = 'X'; // Pre-fill to verify it gets cleared
-        new result = ConvertEncoding(empty, TIS620, UTF8, out);
-        if (result == 1) {
-            printf("[PASS] Test 6: Empty string handled");
-            passed++;
-        } else {
-            printf("[FAIL] Test 6: Empty string (result=%d)", result);
-            failed++;
-        }
-    }
+    // ข้อความผสมไทย-อังกฤษ
+    SendThaiMessage(playerid, COLOR_WHITE, "ยินดีต้อนรับ Welcome to Server!");
 
-    // =========================================================
-    // Test 7: Baht sign ฿ (TIS-620: 0xDF → U+0E3F)
-    // =========================================================
-    {
-        new baht[2];
-        baht[0] = 0xDF; // ฿
-        baht[1] = 0;
+    // ตัวเลข + ไทย
+    SendThaiMessage(playerid, COLOR_WHITE, "ราคา 1,500 บาท จำนวน 10 ชิ้น");
 
-        new out[256];
-        new result = ConvertEncoding(baht, TIS620, UTF8, out);
-        if (result == 1) {
-            printf("[PASS] Test 7: Baht sign: '%s'", out);
-            passed++;
-        } else {
-            printf("[FAIL] Test 7: Baht sign (result=%d)", result);
-            failed++;
-        }
-    }
+    // อักขระพิเศษ ฿
+    SendThaiMessage(playerid, COLOR_WHITE, "ยอดเงิน: ฿50,000");
 
-    // =========================================================
-    // Test 8: Thai digits (TIS-620: 0xF0-0xF9 → ๐-๙)
-    // =========================================================
-    {
-        new digits[11];
-        for (new i = 0; i < 10; i++) {
-            digits[i] = 0xF0 + i; // ๐๑๒๓๔๕๖๗๘๙
-        }
-        digits[10] = 0;
+    // เลขไทย
+    SendThaiMessage(playerid, COLOR_WHITE, "เลขไทย: ๐๑๒๓๔๕๖๗๘๙");
 
-        new out[256];
-        new result = ConvertEncoding(digits, TIS620, UTF8, out);
-        if (result == 1) {
-            printf("[PASS] Test 8: Thai digits: '%s'", out);
-            passed++;
-        } else {
-            printf("[FAIL] Test 8: Thai digits (result=%d)", result);
-            failed++;
-        }
-    }
+    // ประโยคยาว
+    SendThaiMessage(playerid, COLOR_WHITE, "กรุณาอ่านกฎของเซิร์ฟเวอร์ก่อนเล่น ห้ามใช้สคริปโกง");
 
-    // =========================================================
-    // Test 9: Unsupported encoding returns 0
-    // =========================================================
-    {
-        new text[] = "test";
-        new out[256];
-        new result = ConvertEncoding(text, "WINDOWS-1252", "UTF-8", out);
-        if (result == 0) {
-            printf("[PASS] Test 9: Unsupported encoding returns 0");
-            passed++;
-        } else {
-            printf("[FAIL] Test 9: Should return 0 but got %d", result);
-            failed++;
-        }
-    }
+    SendClientMessage(playerid, COLOR_GREEN, "--- Messages test done ---");
+    return 1;
+}
 
-    // =========================================================
-    // Test 10: Long string (stress test)
-    // =========================================================
-    {
-        new long_str[256];
-        for (new i = 0; i < 200; i++) {
-            long_str[i] = 0xA1 + (i % 58); // Cycle through Thai chars
-        }
-        long_str[200] = 0;
+// =========================================================
+//  /color — Inline color แทรกในข้อความไทย
+// =========================================================
+forward TestColors(playerid);
+public TestColors(playerid) {
+    new tis[256];
 
-        new out[1024];
-        new result = ConvertEncoding(long_str, TIS620, UTF8, out);
-        if (result == 1) {
-            printf("[PASS] Test 10: Long string (200 chars) converted");
-            passed++;
-        } else {
-            printf("[FAIL] Test 10: Long string (result=%d)", result);
-            failed++;
-        }
-    }
+    SendClientMessage(playerid, COLOR_CYAN, "--- Inline Colors + Thai ---");
 
-    // =========================================================
-    // Summary
-    // =========================================================
-    printf("");
-    printf("=================================");
-    printf("  Results: %d passed, %d failed", passed, failed);
-    printf("=================================");
+    // สีแดง + สีเขียว
+    ConvertEncoding("{FF0000}ข้อความสีแดง {00FF00}ข้อความสีเขียว", UTF8, TIS620, tis);
+    SendClientMessage(playerid, COLOR_WHITE, tis);
 
+    // แจ้งเตือนแบบระบบ
+    ConvertEncoding("{FFFF00}[แจ้งเตือน] {FFFFFF}คุณได้รับเงิน {00FF00}$1,000", UTF8, TIS620, tis);
+    SendClientMessage(playerid, COLOR_WHITE, tis);
+
+    // ข้อความ kill feed
+    ConvertEncoding("{FF0000}ผู้เล่น A {FFFFFF}ฆ่า {00FF00}ผู้เล่น B", UTF8, TIS620, tis);
+    SendClientMessage(playerid, COLOR_WHITE, tis);
+
+    // HP/Armor display
+    ConvertEncoding("{FF0000}HP: {FFFFFF}100 {0088FF}เกราะ: {FFFFFF}50", UTF8, TIS620, tis);
+    SendClientMessage(playerid, COLOR_WHITE, tis);
+
+    // ระบบ VIP
+    ConvertEncoding("{FFD700}[VIP] {FFFFFF}คุณเป็นสมาชิก VIP ระดับ {FFD700}Gold", UTF8, TIS620, tis);
+    SendClientMessage(playerid, COLOR_WHITE, tis);
+
+    // format + inline color
+    new name[MAX_PLAYER_NAME];
+    GetPlayerName(playerid, name, sizeof(name));
+    new utf8[256];
+    format(utf8, sizeof(utf8), "{00FF00}%s {FFFFFF}เข้าสู่ระบบสำเร็จ", name);
+    ConvertEncoding(utf8, UTF8, TIS620, tis);
+    SendClientMessage(playerid, COLOR_WHITE, tis);
+
+    SendClientMessage(playerid, COLOR_GREEN, "--- Colors test done ---");
+    return 1;
+}
+
+// =========================================================
+//  /info — แสดงข้อมูลผู้เล่นเป็นภาษาไทย
+// =========================================================
+forward TestPlayerInfo(playerid);
+public TestPlayerInfo(playerid) {
+    new tis[256], utf8[256];
+
+    SendClientMessage(playerid, COLOR_CYAN, "--- Player Info (Thai) ---");
+
+    // ชื่อผู้เล่น
+    new name[MAX_PLAYER_NAME];
+    GetPlayerName(playerid, name, sizeof(name));
+    format(utf8, sizeof(utf8), "ชื่อ: %s", name);
+    SendThaiMessage(playerid, COLOR_WHITE, utf8);
+
+    // ID
+    format(utf8, sizeof(utf8), "ไอดี: %d", playerid);
+    SendThaiMessage(playerid, COLOR_WHITE, utf8);
+
+    // HP
+    new Float:hp;
+    GetPlayerHealth(playerid, hp);
+    format(utf8, sizeof(utf8), "พลังชีวิต: %.0f", hp);
+    SendThaiMessage(playerid, COLOR_WHITE, utf8);
+
+    // ตำแหน่ง
+    new Float:x, Float:y, Float:z;
+    GetPlayerPos(playerid, x, y, z);
+    format(utf8, sizeof(utf8), "ตำแหน่ง: X=%.1f Y=%.1f Z=%.1f", x, y, z);
+    SendThaiMessage(playerid, COLOR_WHITE, utf8);
+
+    // Ping
+    format(utf8, sizeof(utf8), "ปิง: %d ms", GetPlayerPing(playerid));
+    SendThaiMessage(playerid, COLOR_WHITE, utf8);
+
+    // สรุปด้วย inline color
+    format(utf8, sizeof(utf8), "{FFD700}[สรุป] {FFFFFF}%s {00FF00}ออนไลน์ {FFFFFF}HP: {FF0000}%.0f", name, hp);
+    ConvertEncoding(utf8, UTF8, TIS620, tis);
+    SendClientMessage(playerid, COLOR_WHITE, tis);
+
+    SendClientMessage(playerid, COLOR_GREEN, "--- Info test done ---");
     return 1;
 }
