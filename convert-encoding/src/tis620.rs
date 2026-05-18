@@ -1,0 +1,186 @@
+// ---------------------------------------------------------
+//  tis620.rs — TIS-620 (Thai Industrial Standard 620)
+//  encoding conversion module
+// ---------------------------------------------------------
+//
+//  TIS-620 maps:
+//    0x00–0x7F → ASCII (identical)
+//    0x80–0x9F → undefined (skipped)
+//    0xA0       → U+00A0 NBSP
+//    0xA1–0xDA → Thai consonants/vowels U+0E01–U+0E3A
+//    0xDB–0xDE → undefined
+//    0xDF       → U+0E3F BAHT SIGN ฿
+//    0xE0–0xFB → Thai digits/symbols U+0E40–U+0E5B
+//    0xFC–0xFF → undefined
+// ---------------------------------------------------------
+
+/// TIS-620 byte → Unicode codepoint lookup table.
+///
+/// Index = TIS-620 byte value. Value = Unicode codepoint.
+/// 0xFFFD = replacement character (undefined byte).
+#[rustfmt::skip]
+const TIS620_TO_UNICODE: [u32; 256] = [
+    // 0x00–0x7F: ASCII passthrough
+    0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
+    0x0008, 0x0009, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E, 0x000F,
+    0x0010, 0x0011, 0x0012, 0x0013, 0x0014, 0x0015, 0x0016, 0x0017,
+    0x0018, 0x0019, 0x001A, 0x001B, 0x001C, 0x001D, 0x001E, 0x001F,
+    0x0020, 0x0021, 0x0022, 0x0023, 0x0024, 0x0025, 0x0026, 0x0027,
+    0x0028, 0x0029, 0x002A, 0x002B, 0x002C, 0x002D, 0x002E, 0x002F,
+    0x0030, 0x0031, 0x0032, 0x0033, 0x0034, 0x0035, 0x0036, 0x0037,
+    0x0038, 0x0039, 0x003A, 0x003B, 0x003C, 0x003D, 0x003E, 0x003F,
+    0x0040, 0x0041, 0x0042, 0x0043, 0x0044, 0x0045, 0x0046, 0x0047,
+    0x0048, 0x0049, 0x004A, 0x004B, 0x004C, 0x004D, 0x004E, 0x004F,
+    0x0050, 0x0051, 0x0052, 0x0053, 0x0054, 0x0055, 0x0056, 0x0057,
+    0x0058, 0x0059, 0x005A, 0x005B, 0x005C, 0x005D, 0x005E, 0x005F,
+    0x0060, 0x0061, 0x0062, 0x0063, 0x0064, 0x0065, 0x0066, 0x0067,
+    0x0068, 0x0069, 0x006A, 0x006B, 0x006C, 0x006D, 0x006E, 0x006F,
+    0x0070, 0x0071, 0x0072, 0x0073, 0x0074, 0x0075, 0x0076, 0x0077,
+    0x0078, 0x0079, 0x007A, 0x007B, 0x007C, 0x007D, 0x007E, 0x007F,
+    // 0x80–0x9F: undefined
+    0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD,
+    0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD,
+    0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD,
+    0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD,
+    // 0xA0: NBSP
+    0x00A0,
+    // 0xA1–0xDA: Thai consonants & vowels (U+0E01–U+0E3A)
+    0x0E01, 0x0E02, 0x0E03, 0x0E04, 0x0E05, 0x0E06, 0x0E07, 0x0E08,
+    0x0E09, 0x0E0A, 0x0E0B, 0x0E0C, 0x0E0D, 0x0E0E, 0x0E0F, 0x0E10,
+    0x0E11, 0x0E12, 0x0E13, 0x0E14, 0x0E15, 0x0E16, 0x0E17, 0x0E18,
+    0x0E19, 0x0E1A, 0x0E1B, 0x0E1C, 0x0E1D, 0x0E1E, 0x0E1F, 0x0E20,
+    0x0E21, 0x0E22, 0x0E23, 0x0E24, 0x0E25, 0x0E26, 0x0E27, 0x0E28,
+    0x0E29, 0x0E2A, 0x0E2B, 0x0E2C, 0x0E2D, 0x0E2E, 0x0E2F, 0x0E30,
+    0x0E31, 0x0E32, 0x0E33, 0x0E34, 0x0E35, 0x0E36, 0x0E37, 0x0E38,
+    0x0E39, 0x0E3A,
+    // 0xDB–0xDE: undefined
+    0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD,
+    // 0xDF: BAHT SIGN ฿
+    0x0E3F,
+    // 0xE0–0xFB: Thai digits & symbols (U+0E40–U+0E5B)
+    0x0E40, 0x0E41, 0x0E42, 0x0E43, 0x0E44, 0x0E45, 0x0E46, 0x0E47,
+    0x0E48, 0x0E49, 0x0E4A, 0x0E4B, 0x0E4C, 0x0E4D, 0x0E4E, 0x0E4F,
+    0x0E50, 0x0E51, 0x0E52, 0x0E53, 0x0E54, 0x0E55, 0x0E56, 0x0E57,
+    0x0E58, 0x0E59, 0x0E5A, 0x0E5B,
+    // 0xFC–0xFF: undefined
+    0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD,
+];
+
+/// Convert TIS-620 raw bytes to a UTF-8 string.
+///
+/// Undefined bytes (0x80–0x9F, etc.) are silently skipped,
+/// matching the behavior of the original C++ implementation.
+pub fn to_utf8(tis_bytes: &[u8]) -> String {
+    let mut result = String::with_capacity(tis_bytes.len() * 3);
+    for &byte in tis_bytes {
+        let cp = TIS620_TO_UNICODE[byte as usize];
+        if cp == 0xFFFD {
+            // Skip undefined bytes (same as original C++ behavior)
+            continue;
+        }
+        if let Some(ch) = char::from_u32(cp) {
+            result.push(ch);
+        }
+    }
+    result
+}
+
+/// Convert a UTF-8 string to TIS-620 raw bytes.
+///
+/// Characters outside the TIS-620 range are replaced with `?`.
+pub fn from_utf8(utf8: &str) -> Vec<u8> {
+    let mut result = Vec::with_capacity(utf8.len());
+    for ch in utf8.chars() {
+        let cp = ch as u32;
+        match cp {
+            // ASCII passthrough
+            0x0000..=0x007F => result.push(cp as u8),
+            // NBSP
+            0x00A0 => result.push(0xA0),
+            // Thai consonants & vowels: U+0E01–U+0E3A → 0xA1–0xDA
+            0x0E01..=0x0E3A => result.push((cp - 0x0E00 + 0xA0) as u8),
+            // Baht sign: U+0E3F → 0xDF
+            0x0E3F => result.push(0xDF),
+            // Thai digits & symbols: U+0E40–U+0E5B → 0xE0–0xFB
+            0x0E40..=0x0E5B => result.push((cp - 0x0E00 + 0xA0) as u8),
+            // Everything else → '?'
+            _ => result.push(b'?'),
+        }
+    }
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tis620_to_utf8_ascii() {
+        let input = b"Hello";
+        let result = to_utf8(input);
+        assert_eq!(result, "Hello");
+    }
+
+    #[test]
+    fn test_tis620_to_utf8_thai() {
+        // กข (0xA1, 0xA2) → U+0E01, U+0E02 → "กข"
+        let input = &[0xA1u8, 0xA2];
+        let result = to_utf8(input);
+        assert_eq!(result, "กข");
+    }
+
+    #[test]
+    fn test_tis620_to_utf8_full_greeting() {
+        // สวัสดี in TIS-620: ส=0xCA, ว=0xC7, ั=0xD1, ส=0xCA, ด=0xB4, ี=0xD5
+        let input = &[0xCAu8, 0xC7, 0xD1, 0xCA, 0xB4, 0xD5];
+        let result = to_utf8(input);
+        assert_eq!(result, "สวัสดี");
+    }
+
+    #[test]
+    fn test_utf8_to_tis620_thai() {
+        let input = "กข";
+        let result = from_utf8(input);
+        assert_eq!(result, &[0xA1, 0xA2]);
+    }
+
+    #[test]
+    fn test_utf8_to_tis620_full_greeting() {
+        let input = "สวัสดี";
+        let result = from_utf8(input);
+        assert_eq!(result, &[0xCA, 0xC7, 0xD1, 0xCA, 0xB4, 0xD5]);
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        let original = &[0xCAu8, 0xC7, 0xD1, 0xCA, 0xB4, 0xD5]; // สวัสดี
+        let utf8 = to_utf8(original);
+        let back = from_utf8(&utf8);
+        assert_eq!(back, original);
+    }
+
+    #[test]
+    fn test_baht_sign() {
+        let input = &[0xDFu8]; // ฿
+        let result = to_utf8(input);
+        assert_eq!(result, "฿");
+
+        let back = from_utf8("฿");
+        assert_eq!(back, &[0xDF]);
+    }
+
+    #[test]
+    fn test_undefined_bytes_skipped() {
+        // 0x80–0x9F are undefined, should be skipped
+        let input = &[0x80u8, 0xA1, 0x90, 0xA2];
+        let result = to_utf8(input);
+        assert_eq!(result, "กข");
+    }
+
+    #[test]
+    fn test_non_thai_replaced() {
+        let result = from_utf8("Hello日本語");
+        // 日本語 are not in TIS-620, replaced with '?'
+        assert_eq!(result, b"Hello???");
+    }
+}

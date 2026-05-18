@@ -1,0 +1,17 @@
+[package]
+name = "convert-encoding"
+version = "2.1.0"
+edition = "2024"
+description = "SA-MP/open.mp plugin for TIS-620 ↔ UTF-8 encoding conversion"
+license = "MIT"
+authors = ["EasyCore"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+samp-sdk = { path = "../../plugin_amx/samp-sdk" }
+
+[features]
+default = []
+component = ["samp-sdk/component"]
